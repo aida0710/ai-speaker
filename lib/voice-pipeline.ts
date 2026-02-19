@@ -59,6 +59,7 @@ export async function textToSpeech(
       | "nova"
       | "shimmer",
     input: text,
+    speed: 1.3,
     response_format: "mp3",
   });
 

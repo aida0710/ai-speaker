@@ -8,7 +8,6 @@ AI スピーカー クライアント
 
 import io
 import json
-import os
 import base64
 import subprocess
 import tempfile
@@ -151,17 +150,9 @@ def play_mp3(audio_b64: str) -> None:
         f.write(mp3_bytes)
         tmp_path = f.name
 
-    # ffplay で mp3 再生 → 先頭無音をリアルタイムスキップ
-    env = os.environ.copy()
-    env["SDL_AUDIODRIVER"] = "alsa"
-    env["AUDIODEV"] = PLAYBACK_DEVICE
+    # mpg123 で mp3 再生 → ALSA 経由でアンプに出力
     subprocess.run(
-        [
-            "ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
-            "-af", "silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB,atempo=1.3",
-            tmp_path,
-        ],
-        env=env,
+        ["mpg123", "-a", PLAYBACK_DEVICE, "-q", tmp_path],
         check=False,
     )
     print("✅ 再生終了")
