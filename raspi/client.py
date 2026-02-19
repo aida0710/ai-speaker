@@ -8,6 +8,7 @@ AI スピーカー クライアント
 
 import io
 import json
+import os
 import base64
 import subprocess
 import tempfile
@@ -20,9 +21,9 @@ import requests
 from gpiozero import Button
 
 # --- 設定 ---
-API_URL   = "http://192.168.1.x:3000/api/voice"  # サーバーのIPに変更
-API_TOKEN = "your-secret-token"                    # .env.local の API_TOKEN と一致させる
-VOICE     = "nova"                                 # alloy / echo / fable / onyx / nova / shimmer
+API_URL   = "http://ai-speaker-theta.vercel.app/api/voice"  # サーバーのIPに変更
+API_TOKEN = "HGRVxyW2uHbtunpHer77F7a4rYsPmGMQwY64AmHWkkBC96rX2ieejWzMKDKt_CXiK4Pkst58Wpansjxs_BQSV8WgsAeJK-jUzBtY"                    # .env.local の API_TOKEN と一致させる
+VOICE     = "alloy"                                 # alloy / echo / fable / onyx / nova / shimmer
 
 # ハードウェア
 BUTTON_PIN = 23
@@ -109,7 +110,7 @@ def record_audio() -> bytes | None:
 
 def call_api(wav_bytes: bytes, history: list) -> dict | None:
     """API に音声と履歴を送り、レスポンス dict を返す。"""
-    print("💭 考え中...")
+    print("考え中...")
     try:
         resp = requests.post(
             API_URL,
@@ -143,23 +144,30 @@ def call_api(wav_bytes: bytes, history: list) -> dict | None:
 
 def play_mp3(audio_b64: str) -> None:
     """base64 mp3 をデコードして再生する。"""
-    print("🔊 再生中...")
+    print("再生中...")
     mp3_bytes = base64.b64decode(audio_b64)
 
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
         f.write(mp3_bytes)
         tmp_path = f.name
 
-    # mpg123 で mp3 再生 → ALSA 経由でアンプに出力
+    # ffplay で mp3 再生 → 先頭無音をリアルタイムスキップ
+    env = os.environ.copy()
+    env["SDL_AUDIODRIVER"] = "alsa"
+    env["AUDIODEV"] = PLAYBACK_DEVICE
     subprocess.run(
-        ["mpg123", "-a", PLAYBACK_DEVICE, "-q", tmp_path],
+        [
+            "ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
+            "-af", "silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB,atempo=1.3",
+            tmp_path,
+        ],
+        env=env,
         check=False,
     )
     print("✅ 再生終了")
 
 
 def main():
-    print("=== AI スピーカー ===")
     print(f"サーバー: {API_URL}")
     print(f"ボイス  : {VOICE}")
     print("準備完了。ボタンを押して話しかけてください。\n")

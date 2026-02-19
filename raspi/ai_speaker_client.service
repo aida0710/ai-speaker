@@ -1,0 +1,13 @@
+[Unit]
+Description=AI Speaker Client
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/openai_asr_tts/raspi/client.py
+WorkingDirectory=/home/pi/openai_asr_tts/raspi
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
