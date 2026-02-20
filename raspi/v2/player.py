@@ -26,9 +26,10 @@ def play_mp3(audio_b64: str, playback_device: str) -> None:
         f.write(mp3_bytes)
         tmp_path = f.name
 
-    # mpg123 で mp3 再生 → ALSA 経由でアンプに出力
+    # mpg123 で mp3 再生 → ALSA 固定・デバイス指定
     subprocess.run(
-        ["mpg123", "-a", playback_device, "-q", tmp_path],
+        ["mpg123", "-o", "alsa", "-a", playback_device, "-q", tmp_path],
         check=False,
+        stderr=subprocess.DEVNULL,
     )
     print("再生終了")
