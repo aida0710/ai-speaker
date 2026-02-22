@@ -45,6 +45,10 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     """
     audio = _audio
 
+    # audio.open() 内でも ALSA がエラーメッセージを stderr に出力するため抑制する
+    _devnull2 = os.open(os.devnull, os.O_WRONLY)
+    _old_stderr2 = os.dup(2)
+    os.dup2(_devnull2, 2)
     try:
         stream = audio.open(
             format=FORMAT,
@@ -57,6 +61,10 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     except Exception as e:
         print(f"エラー: マイクが開けません。{e}")
         return None
+    finally:
+        os.dup2(_old_stderr2, 2)
+        os.close(_old_stderr2)
+        os.close(_devnull2)
 
     print("録音中...（ボタンを離すと停止）")
 

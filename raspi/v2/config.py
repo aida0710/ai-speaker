@@ -2,7 +2,6 @@
 設定定数 — raspi/v2
 """
 
-import ctypes
 import os
 from pathlib import Path
 
@@ -11,17 +10,9 @@ from dotenv import load_dotenv
 # .env を読み込む（このファイルと同じディレクトリ）
 load_dotenv(Path(__file__).parent / ".env")
 
-# ALSA エラーメッセージを抑制
-# ※ _alsa_error_handler を変数に保持しないと GC で解放され segfault する
-try:
-    _asound = ctypes.cdll.LoadLibrary("libasound.so.2")
-    _alsa_error_handler = ctypes.CFUNCTYPE(
-        None, ctypes.c_char_p, ctypes.c_int,
-        ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p
-    )(lambda *_: None)
-    _asound.snd_lib_error_set_handler(_alsa_error_handler)
-except OSError:
-    pass
+# ALSA エラーメッセージは recorder.py 側で stderr リダイレクトにより抑制する。
+# snd_lib_error_set_handler に Python lambda を渡す方式は、ARMv6 では
+# variadic 呼び出し規約の不一致でセグフォルトするため使用しない。
 
 import pyaudio
 
