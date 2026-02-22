@@ -12,14 +12,14 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 # ALSA エラーメッセージを抑制
+# ※ _alsa_error_handler を変数に保持しないと GC で解放され segfault する
 try:
     _asound = ctypes.cdll.LoadLibrary("libasound.so.2")
-    _asound.snd_lib_error_set_handler(
-        ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int,
-                         ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p)(
-            lambda *_: None
-        )
-    )
+    _alsa_error_handler = ctypes.CFUNCTYPE(
+        None, ctypes.c_char_p, ctypes.c_int,
+        ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p
+    )(lambda *_: None)
+    _asound.snd_lib_error_set_handler(_alsa_error_handler)
 except OSError:
     pass
 
