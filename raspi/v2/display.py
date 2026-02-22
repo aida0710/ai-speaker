@@ -150,26 +150,16 @@ def show_thinking(device, mode_name: str, value) -> None:
     device.display(image)
 
 
-def show_playing(device, transcription: str, reply: str,
-                 mode_name: str, value) -> None:
-    """
-    再生中の表示。顔は happy、返答テキストの冒頭を表示。
-
-    Parameters
-    ----------
-    transcription : str  ユーザー発話の文字起こし（未使用、将来拡張用）
-    reply : str          AI の返答テキスト（先頭18文字を表示）
-    mode_name : str      現在のエンコーダモード
-    value : float | int  現在の調整値
-    """
+def show_playing(device, mode_name: str, value) -> None:
+    """再生中の表示。顔は happy、"Talking..." を表示。"""
     image, draw = _blank_image()
     font = _font()
 
     _draw_face(draw, font, _FACE_PLAYING)
     _draw_divider(draw)
 
-    short = reply[:18] + ("..." if len(reply) > 18 else "")
-    draw.text((_cx(draw, short, font), 40), short, font=font, fill=1)
+    talk_text = "Talking..."
+    draw.text((_cx(draw, talk_text, font), 40), talk_text, font=font, fill=1)
 
     mic_label = ">MIC<" if mode_name == "MIC_GAIN" else " MIC "
     vol_label = ">VOL<" if mode_name == "SPEAKER_VOL" else " VOL "

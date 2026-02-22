@@ -92,7 +92,7 @@ def main():
         audio_resp = stream_audio(reply, config.VOICE)
 
         if audio_resp is not None:
-            show_playing(device, transcription, reply, encoder.mode, _current_value())
+            show_playing(device, encoder.mode, _current_value())
             play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE)
 
         show_idle(device, encoder.mode, _current_value())
