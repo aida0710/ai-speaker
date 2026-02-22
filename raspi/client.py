@@ -20,8 +20,8 @@ import requests
 from gpiozero import Button
 
 # --- 設定 ---
-API_URL   = "http://ai-speaker-theta.vercel.app/api/voice"  # サーバーのIPに変更
-API_TOKEN = "HGRVxyW2uHbtunpHer77F7a4rYsPmGMQwY64AmHWkkBC96rX2ieejWzMKDKt_CXiK4Pkst58Wpansjxs_BQSV8WgsAeJK-jUzBtY"                    # .env.local の API_TOKEN と一致させる
+API_URL   = ""  # サーバーのIPに変更
+API_TOKEN = ""                    # .env.local の API_TOKEN と一致させる
 VOICE     = "alloy"                                 # alloy / echo / fable / onyx / nova / shimmer
 
 # ハードウェア

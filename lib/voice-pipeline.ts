@@ -42,22 +42,40 @@ export async function chatComplete(
   return choice.message.content ?? "";
 }
 
+type TtsVoice =
+  | "alloy"
+  | "ash"
+  | "ballad"
+  | "cedar"
+  | "coral"
+  | "echo"
+  | "fable"
+  | "marin"
+  | "nova"
+  | "onyx"
+  | "sage"
+  | "shimmer"
+  | "verse";
+
+const VALID_VOICES: TtsVoice[] = [
+  "alloy", "ash", "ballad", "cedar", "coral",
+  "echo", "fable", "marin", "nova", "onyx",
+  "sage", "shimmer", "verse",
+];
+
+function selectVoice(voice: string): TtsVoice {
+  return (VALID_VOICES as string[]).includes(voice)
+    ? (voice as TtsVoice)
+    : "alloy";
+}
+
 export async function textToSpeech(
   text: string,
   voice: string
 ): Promise<string> {
-  const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-  const selectedVoice = validVoices.includes(voice) ? voice : "alloy";
-
   const response = await openai.audio.speech.create({
     model: "gpt-4o-mini-tts-2025-12-15",
-    voice: selectedVoice as
-      | "alloy"
-      | "echo"
-      | "fable"
-      | "onyx"
-      | "nova"
-      | "shimmer",
+    voice: selectVoice(voice),
     input: text,
     speed: 1.3,
     response_format: "mp3",
@@ -71,18 +89,9 @@ export async function textToSpeechStream(
   text: string,
   voice: string
 ): Promise<ReadableStream<Uint8Array>> {
-  const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-  const selectedVoice = validVoices.includes(voice) ? voice : "alloy";
-
   const response = await openai.audio.speech.create({
     model: "gpt-4o-mini-tts-2025-12-15",
-    voice: selectedVoice as
-      | "alloy"
-      | "echo"
-      | "fable"
-      | "onyx"
-      | "nova"
-      | "shimmer",
+    voice: selectVoice(voice),
     input: text,
     speed: 1.3,
     response_format: "mp3",
