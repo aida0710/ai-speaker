@@ -20,6 +20,7 @@ _FACE_IDLE      = "o_o"   # 待機
 _FACE_RECORDING = "O.O"   # 録音中（目を見開く）
 _FACE_THINKING  = "-.-"   # 思考中（目を細める）
 _FACE_PLAYING   = "^w^"   # 再生中（笑顔）
+_FACE_ERROR     = "x_x"   # エラー（故障顔）
 
 
 def init_display():
@@ -141,6 +142,25 @@ def show_thinking(device, mode_name: str, value) -> None:
 
     think_text = "Thinking..."
     draw.text((_cx(draw, think_text, font), 40), think_text, font=font, fill=1)
+
+    mic_label = ">MIC<" if mode_name == "MIC_GAIN" else " MIC "
+    vol_label = ">VOL<" if mode_name == "SPEAKER_VOL" else " VOL "
+    sub = f"{mic_label} {vol_label}"
+    draw.text((_cx(draw, sub, font), 51), sub, font=font, fill=1)
+
+    device.display(image)
+
+
+def show_network_error(device, mode_name: str, value) -> None:
+    """ネットワーク未接続の表示。顔は x_x、"Network Error" を表示。"""
+    image, draw = _blank_image()
+    font = _font()
+
+    _draw_face(draw, font, _FACE_ERROR)
+    _draw_divider(draw)
+
+    err_text = "Network Error"
+    draw.text((_cx(draw, err_text, font), 40), err_text, font=font, fill=1)
 
     mic_label = ">MIC<" if mode_name == "MIC_GAIN" else " MIC "
     vol_label = ">VOL<" if mode_name == "SPEAKER_VOL" else " VOL "

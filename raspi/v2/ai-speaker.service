@@ -1,0 +1,15 @@
+[Unit]
+Description=AI Speaker v2
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aida
+WorkingDirectory=/home/aida/ai-speaker/raspi/v2
+ExecStart=/usr/bin/python3 main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

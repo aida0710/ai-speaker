@@ -6,6 +6,8 @@ AI スピーカー v2 — メインループ
 """
 
 import queue
+import socket
+import threading
 import time
 
 from gpiozero import Button
@@ -14,8 +16,24 @@ import config
 from recorder   import record_audio
 from api_client import call_text_api, stream_audio
 from player     import play_mp3_stream
-from display    import init_display, show_idle, show_recording, show_thinking, show_playing
+from display    import init_display, show_idle, show_recording, show_thinking, show_playing, show_network_error
 from encoder    import EncoderManager
+
+_NETWORK_CHECK_INTERVAL = 15   # 秒
+_NETWORK_CHECK_HOST     = "1.1.1.1"
+_NETWORK_CHECK_PORT     = 53   # DNS ポート（軽量な TCP 疎通確認）
+_NETWORK_CHECK_TIMEOUT  = 3
+
+
+def _check_network() -> bool:
+    """1.1.1.1:53 への TCP 接続で疎通を確認する。"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(_NETWORK_CHECK_TIMEOUT)
+            s.connect((_NETWORK_CHECK_HOST, _NETWORK_CHECK_PORT))
+        return True
+    except OSError:
+        return False
 
 
 def main():
@@ -34,8 +52,37 @@ def main():
     # 実際の録音・API 処理はメインスレッドで行う。
     _work: queue.Queue[str] = queue.Queue()
 
+    # ネットワーク状態（バックグラウンドスレッドが更新）
+    _net_ok = True
+
+    def _network_watcher():
+        """15 秒ごとに疎通確認し、状態変化時にキューで通知する。"""
+        nonlocal _net_ok
+        while True:
+            ok = _check_network()
+            if ok != _net_ok:
+                _net_ok = ok
+                msg = "ネットワーク接続が回復しました" if ok else "ネットワーク接続が切断されました"
+                print(msg)
+                _work.put("net_changed")
+            time.sleep(_NETWORK_CHECK_INTERVAL)
+
+    threading.Thread(target=_network_watcher, daemon=True).start()
+
     # 長押しと短タップを区別するフラグ
     _was_held = False
+
+    def _current_value():
+        if encoder.mode == "MIC_GAIN":
+            return encoder.volume_gain
+        return encoder.speaker_vol
+
+    def _refresh_idle():
+        """_net_ok の状態に応じて idle か network_error を表示する。"""
+        if _net_ok:
+            show_idle(device, encoder.mode, _current_value())
+        else:
+            show_network_error(device, encoder.mode, _current_value())
 
     def on_held():
         """長押し検知: メインスレッドへ録音タスクを委譲"""
@@ -47,18 +94,13 @@ def main():
         """ボタン離し: 長押しでなければモード切り替え"""
         nonlocal _was_held
         if not _was_held:
-            new_mode = encoder.cycle_mode()
-            show_idle(device, new_mode, _current_value())
+            encoder.cycle_mode()
+            _work.put("refresh")
         _was_held = False
 
     def on_rotated():
-        """エンコーダ回転: 値更新 → OLED 更新"""
-        show_idle(device, encoder.mode, _current_value())
-
-    def _current_value():
-        if encoder.mode == "MIC_GAIN":
-            return encoder.volume_gain
-        return encoder.speaker_vol
+        """エンコーダ回転: メインスレッドへ表示更新を委譲"""
+        _work.put("refresh")
 
     def _do_record():
         """録音 → API → 再生（メインスレッドで実行）"""
@@ -66,7 +108,7 @@ def main():
         wav_bytes = record_audio(button, encoder.volume_gain)
 
         if wav_bytes is None:
-            show_idle(device, encoder.mode, _current_value())
+            _refresh_idle()
             return
 
         show_thinking(device, encoder.mode, _current_value())
@@ -75,7 +117,7 @@ def main():
         result = call_text_api(wav_bytes, history, config.VOICE)
 
         if result is None:
-            show_idle(device, encoder.mode, _current_value())
+            _refresh_idle()
             return
 
         transcription = result.get("transcription", "")
@@ -95,7 +137,7 @@ def main():
             show_playing(device, encoder.mode, _current_value())
             play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE)
 
-        show_idle(device, encoder.mode, _current_value())
+        _refresh_idle()
 
     # gpiozero イベントバインド
     button.when_held     = on_held
@@ -111,17 +153,22 @@ def main():
     encoder._encoder.when_rotated = _on_rotate_with_display
 
     # 初期表示
-    show_idle(device, encoder.mode, _current_value())
+    _refresh_idle()
 
     try:
-        # メインスレッドでキューを監視し、録音タスクを処理する
+        # メインスレッドでキューを監視し、すべての表示・録音処理を行う
         while True:
             try:
                 task = _work.get(timeout=0.1)
             except queue.Empty:
                 continue
             if task == "record":
+                if not _net_ok:
+                    print("ネットワーク未接続のため録音をスキップします")
+                    continue
                 _do_record()
+            elif task in ("refresh", "net_changed"):
+                _refresh_idle()
     except KeyboardInterrupt:
         print("\n終了します")
 
