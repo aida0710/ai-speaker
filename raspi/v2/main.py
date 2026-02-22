@@ -5,6 +5,7 @@ AI スピーカー v2 — メインループ
 - エンコーダ回転      : 現在モードの値を調整 → OLED 更新
 """
 
+import queue
 import time
 
 from gpiozero import Button
@@ -28,14 +29,39 @@ def main():
     button  = Button(config.BUTTON_PIN, pull_up=True, hold_time=0.5)
     history = []
 
+    # PortAudio/ALSA はメインスレッド以外から open() するとセグフォルトするため、
+    # コールバック（gpiozero バックグラウンドスレッド）からはキューに積むだけにして
+    # 実際の録音・API 処理はメインスレッドで行う。
+    _work: queue.Queue[str] = queue.Queue()
+
     # 長押しと短タップを区別するフラグ
     _was_held = False
 
     def on_held():
-        """長押し開始: 録音 → API → 再生"""
+        """長押し検知: メインスレッドへ録音タスクを委譲"""
         nonlocal _was_held
         _was_held = True
+        _work.put("record")
 
+    def on_released():
+        """ボタン離し: 長押しでなければモード切り替え"""
+        nonlocal _was_held
+        if not _was_held:
+            new_mode = encoder.cycle_mode()
+            show_idle(device, new_mode, _current_value())
+        _was_held = False
+
+    def on_rotated():
+        """エンコーダ回転: 値更新 → OLED 更新"""
+        show_idle(device, encoder.mode, _current_value())
+
+    def _current_value():
+        if encoder.mode == "MIC_GAIN":
+            return encoder.volume_gain
+        return encoder.speaker_vol
+
+    def _do_record():
+        """録音 → API → 再生（メインスレッドで実行）"""
         show_recording(device, encoder.mode, _current_value())
         wav_bytes = record_audio(button, encoder.volume_gain)
 
@@ -71,25 +97,8 @@ def main():
 
         show_idle(device, encoder.mode, _current_value())
 
-    def on_released():
-        """ボタン離し: 長押しでなければモード切り替え"""
-        nonlocal _was_held
-        if not _was_held:
-            new_mode = encoder.cycle_mode()
-            show_idle(device, new_mode, _current_value())
-        _was_held = False
-
-    def on_rotated():
-        """エンコーダ回転: 値更新 → OLED 更新"""
-        show_idle(device, encoder.mode, _current_value())
-
-    def _current_value():
-        if encoder.mode == "MIC_GAIN":
-            return encoder.volume_gain
-        return encoder.speaker_vol
-
     # gpiozero イベントバインド
-    button.when_held    = on_held
+    button.when_held     = on_held
     button.when_released = on_released
 
     # エンコーダ回転イベント（EncoderManager 内の _on_rotate 後に表示更新）
@@ -105,10 +114,14 @@ def main():
     show_idle(device, encoder.mode, _current_value())
 
     try:
-        # gpiozero はバックグラウンドスレッドでイベントを処理するため、
-        # メインスレッドはスリープで待機するだけでよい
+        # メインスレッドでキューを監視し、録音タスクを処理する
         while True:
-            time.sleep(0.1)
+            try:
+                task = _work.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if task == "record":
+                _do_record()
     except KeyboardInterrupt:
         print("\n終了します")
 
