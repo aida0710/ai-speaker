@@ -18,8 +18,6 @@ from config import (
     CHUNK,
     CHANNELS,
     RATE,
-    START_TRIM_CHUNKS,
-    END_TRIM_CHUNKS,
 )
 
 _BYTES_PER_SAMPLE = 2  # S16_LE = 16bit = 2 bytes
@@ -53,12 +51,6 @@ def record_audio(button, volume_gain: float) -> bytes | None:
 
     print("録音中...（ボタンを離すと停止）")
 
-    # 開始ノイズ除去（read1 は利用可能なデータを即座に返す）
-    for _ in range(START_TRIM_CHUNKS):
-        data = proc.stdout.read1(_CHUNK_BYTES)
-        if not data:
-            break
-
     frames = []
     while button.is_pressed:
         data = proc.stdout.read1(_CHUNK_BYTES)
@@ -78,10 +70,6 @@ def record_audio(button, volume_gain: float) -> bytes | None:
         proc.wait()
 
     print("録音終了")
-
-    # 終了ノイズ除去
-    if len(frames) > END_TRIM_CHUNKS:
-        frames = frames[:-END_TRIM_CHUNKS]
 
     if not frames:
         print("録音データがありません")

@@ -25,10 +25,6 @@ CHUNK    = 4096
 CHANNELS = 1
 RATE     = 16000
 
-# --- ノイズ対策 ---
-START_TRIM_CHUNKS = 10
-END_TRIM_CHUNKS   = 5
-
 # --- マイクゲイン ---
 VOLUME_GAIN_DEFAULT = 16.0
 VOLUME_GAIN_MIN     = 1.0
