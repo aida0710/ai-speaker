@@ -21,7 +21,7 @@ export function defaultVoice(): string {
 
 export async function transcribeAudio(audioFile: File): Promise<string> {
   const response = await openai.audio.transcriptions.create({
-    model: "whisper-1",
+    model: "gpt-4o-transcribe",
     file: audioFile,
   });
   return response.text;
@@ -30,7 +30,7 @@ export async function transcribeAudio(audioFile: File): Promise<string> {
 export async function chatComplete(
   messages: OpenAI.Chat.ChatCompletionMessageParam[]
 ): Promise<string> {
-  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-nano";
   const response = await openai.chat.completions.create({
     model,
     messages,
