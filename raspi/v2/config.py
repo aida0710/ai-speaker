@@ -15,9 +15,9 @@ DEV_INDEX  = 1       # arecord -l で確認したカード番号
 
 # --- 録音設定（v4 と同じ） ---
 CHUNK    = 4096
-FORMAT   = pyaudio.paInt32
+FORMAT   = pyaudio.paInt16
 CHANNELS = 1
-RATE     = 48000
+RATE     = 16000
 
 # --- ノイズ対策 ---
 START_TRIM_CHUNKS = 10

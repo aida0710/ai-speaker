@@ -11,8 +11,8 @@ from gpiozero import Button
 
 import config
 from recorder   import record_audio
-from api_client import call_api
-from player     import play_mp3
+from api_client import call_text_api, stream_audio
+from player     import play_mp3_stream
 from display    import init_display, show_idle, show_recording, show_thinking, show_playing
 from encoder    import EncoderManager
 
@@ -44,7 +44,9 @@ def main():
             return
 
         show_thinking(device, encoder.mode, _current_value())
-        result = call_api(wav_bytes, history, config.VOICE)
+
+        # Step 1: ASR + LLM
+        result = call_text_api(wav_bytes, history, config.VOICE)
 
         if result is None:
             show_idle(device, encoder.mode, _current_value())
@@ -52,17 +54,20 @@ def main():
 
         transcription = result.get("transcription", "")
         reply         = result.get("reply", "")
-        audio_b64     = result.get("audio", "")
 
         print(f"  あなた : {transcription}")
         print(f"  AI     : {reply}")
 
+        # history をテキスト確定後すぐに更新
         history.append({"role": "user",      "content": transcription})
         history.append({"role": "assistant",  "content": reply})
 
-        if audio_b64:
+        # Step 2: TTS ストリーミング再生
+        audio_resp = stream_audio(reply, config.VOICE)
+
+        if audio_resp is not None:
             show_playing(device, transcription, reply, encoder.mode, _current_value())
-            play_mp3(audio_b64, config.PLAYBACK_DEVICE)
+            play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE)
 
         show_idle(device, encoder.mode, _current_value())
 

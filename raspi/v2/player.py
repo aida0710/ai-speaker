@@ -1,35 +1,31 @@
 """
 mp3 再生モジュール — raspi/v2
-base64 エンコードされた mp3 をデコードして ffplay で再生する。
+ストリーミングレスポンスを mpg123 の stdin にパイプして再生する。
 """
 
-import base64
 import subprocess
-import tempfile
 
 
-def play_mp3(audio_b64: str, playback_device: str) -> None:
+def play_mp3_stream(response, playback_device: str) -> None:
     """
-    base64 mp3 をデコードして再生する。
+    ストリーミングレスポンスの mp3 を mpg123 の stdin にパイプして再生する。
 
     Parameters
     ----------
-    audio_b64 : str
-        base64 エンコードされた mp3 データ。
+    response : requests.Response
+        stream=True で取得したストリーミングレスポンス。
     playback_device : str
         ALSA デバイス名（例: "plughw:1,0"）。
     """
     print("再生中...")
-    mp3_bytes = base64.b64decode(audio_b64)
-
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-        f.write(mp3_bytes)
-        tmp_path = f.name
-
-    # mpg123 で mp3 再生 → ALSA 固定・デバイス指定
-    subprocess.run(
-        ["mpg123", "-o", "alsa", "-a", playback_device, "-q", tmp_path],
-        check=False,
+    proc = subprocess.Popen(
+        ["mpg123", "-o", "alsa", "-a", playback_device, "-q", "-"],
+        stdin=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
+    for chunk in response.iter_content(chunk_size=4096):
+        if chunk:
+            proc.stdin.write(chunk)
+    proc.stdin.close()
+    proc.wait()
     print("再生終了")

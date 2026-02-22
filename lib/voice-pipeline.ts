@@ -66,3 +66,27 @@ export async function textToSpeech(
   const buffer = Buffer.from(await response.arrayBuffer());
   return buffer.toString("base64");
 }
+
+export async function textToSpeechStream(
+  text: string,
+  voice: string
+): Promise<ReadableStream<Uint8Array>> {
+  const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+  const selectedVoice = validVoices.includes(voice) ? voice : "alloy";
+
+  const response = await openai.audio.speech.create({
+    model: "gpt-4o-mini-tts-2025-12-15",
+    voice: selectedVoice as
+      | "alloy"
+      | "echo"
+      | "fable"
+      | "onyx"
+      | "nova"
+      | "shimmer",
+    input: text,
+    speed: 1.3,
+    response_format: "mp3",
+  });
+
+  return response.body as ReadableStream<Uint8Array>;
+}

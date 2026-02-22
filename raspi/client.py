@@ -30,9 +30,9 @@ DEV_INDEX  = 1       # arecord -l で確認したカード番号
 
 # 録音設定（v4 と同じ）
 CHUNK    = 4096
-FORMAT   = pyaudio.paInt32
+FORMAT   = pyaudio.paInt16
 CHANNELS = 1
-RATE     = 48000
+RATE     = 16000
 
 # ノイズ対策
 START_TRIM_CHUNKS = 10
@@ -76,9 +76,9 @@ def record_audio() -> bytes | None:
     while button.is_pressed:
         try:
             data = stream.read(CHUNK, exception_on_overflow=False)
-            signal = np.frombuffer(data, dtype=np.int32).astype(np.float64)
-            signal = np.clip(signal * VOLUME_GAIN, -2147483648, 2147483647)
-            frames.append(signal.astype(np.int32).tobytes())
+            signal = np.frombuffer(data, dtype=np.int16).astype(np.float64)
+            signal = np.clip(signal * VOLUME_GAIN, -32768, 32767)
+            frames.append(signal.astype(np.int16).tobytes())
         except IOError:
             pass
 

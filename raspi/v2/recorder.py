@@ -60,9 +60,9 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     while button.is_pressed:
         try:
             data = stream.read(CHUNK, exception_on_overflow=False)
-            signal = np.frombuffer(data, dtype=np.int32).astype(np.float64)
-            signal = np.clip(signal * volume_gain, -2147483648, 2147483647)
-            frames.append(signal.astype(np.int32).tobytes())
+            signal = np.frombuffer(data, dtype=np.int16).astype(np.float64)
+            signal = np.clip(signal * volume_gain, -32768, 32767)
+            frames.append(signal.astype(np.int16).tobytes())
         except IOError:
             pass
 
