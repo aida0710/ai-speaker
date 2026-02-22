@@ -1,35 +1,29 @@
 """
 音声録音モジュール — raspi/v2
 ボタンが押されている間録音し、wav バイト列を返す。
+
+PyAudio/PortAudio は ARMv6 (Raspberry Pi Zero W) で Pa_OpenStream 内で
+セグフォルトするため、arecord (ALSA ユーティリティ) をサブプロセスで
+使用することで問題を回避する。
 """
 
 import io
-import os
+import subprocess
 import wave
 
-import pyaudio
 import numpy as np
 
 from config import (
     DEV_INDEX,
     CHUNK,
-    FORMAT,
     CHANNELS,
     RATE,
     START_TRIM_CHUNKS,
     END_TRIM_CHUNKS,
 )
 
-# PyAudio をメインスレッドで一度だけ初期化（スレッドセーフ対策）
-_devnull = os.open(os.devnull, os.O_WRONLY)
-_old_stderr = os.dup(2)
-os.dup2(_devnull, 2)
-try:
-    _audio = pyaudio.PyAudio()
-finally:
-    os.dup2(_old_stderr, 2)
-    os.close(_old_stderr)
-    os.close(_devnull)
+_BYTES_PER_SAMPLE = 2  # S16_LE = 16bit = 2 bytes
+_CHUNK_BYTES = CHUNK * _BYTES_PER_SAMPLE * CHANNELS
 
 
 def record_audio(button, volume_gain: float) -> bytes | None:
@@ -43,56 +37,51 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     volume_gain : float
         マイク入力に掛けるゲイン倍率。
     """
-    audio = _audio
-
-    # audio.open() 内でも ALSA がエラーメッセージを stderr に出力するため抑制する
-    _devnull2 = os.open(os.devnull, os.O_WRONLY)
-    _old_stderr2 = os.dup(2)
-    os.dup2(_devnull2, 2)
-    try:
-        stream = audio.open(
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=RATE,
-            input=True,
-            input_device_index=DEV_INDEX,
-            frames_per_buffer=CHUNK,
-        )
-    except Exception as e:
-        print(f"エラー: マイクが開けません。{e}")
-        return None
-    finally:
-        os.dup2(_old_stderr2, 2)
-        os.close(_old_stderr2)
-        os.close(_devnull2)
+    proc = subprocess.Popen(
+        [
+            "arecord",
+            "-D", f"plughw:{DEV_INDEX},0",
+            "-f", "S16_LE",
+            "-r", str(RATE),
+            "-c", str(CHANNELS),
+            "-t", "raw",
+            "-q",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
 
     print("録音中...（ボタンを離すと停止）")
 
-    # 開始ノイズ除去
+    # 開始ノイズ除去（read1 は利用可能なデータを即座に返す）
     for _ in range(START_TRIM_CHUNKS):
-        try:
-            stream.read(CHUNK, exception_on_overflow=False)
-        except Exception:
-            pass
+        data = proc.stdout.read1(_CHUNK_BYTES)
+        if not data:
+            break
 
     frames = []
     while button.is_pressed:
-        try:
-            data = stream.read(CHUNK, exception_on_overflow=False)
+        data = proc.stdout.read1(_CHUNK_BYTES)
+        if not data:
+            break
+        if volume_gain != 1.0:
             signal = np.frombuffer(data, dtype=np.int16).astype(np.float64)
             signal = np.clip(signal * volume_gain, -32768, 32767)
-            frames.append(signal.astype(np.int16).tobytes())
-        except IOError:
-            pass
+            data = signal.astype(np.int16).tobytes()
+        frames.append(data)
+
+    proc.terminate()
+    try:
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
 
     print("録音終了")
 
     # 終了ノイズ除去
     if len(frames) > END_TRIM_CHUNKS:
         frames = frames[:-END_TRIM_CHUNKS]
-
-    stream.stop_stream()
-    stream.close()
 
     if not frames:
         print("録音データがありません")
@@ -101,7 +90,7 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     buf = io.BytesIO()
     wf = wave.open(buf, "wb")
     wf.setnchannels(CHANNELS)
-    wf.setsampwidth(pyaudio.get_sample_size(FORMAT))
+    wf.setsampwidth(_BYTES_PER_SAMPLE)
     wf.setframerate(RATE)
     wf.writeframes(b"".join(frames))
     wf.close()

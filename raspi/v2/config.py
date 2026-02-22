@@ -10,12 +10,6 @@ from dotenv import load_dotenv
 # .env を読み込む（このファイルと同じディレクトリ）
 load_dotenv(Path(__file__).parent / ".env")
 
-# ALSA エラーメッセージは recorder.py 側で stderr リダイレクトにより抑制する。
-# snd_lib_error_set_handler に Python lambda を渡す方式は、ARMv6 では
-# variadic 呼び出し規約の不一致でセグフォルトするため使用しない。
-
-import pyaudio
-
 # --- API ---
 API_URL   = os.environ["API_URL"]
 API_TOKEN = os.environ["API_TOKEN"]
@@ -25,9 +19,9 @@ VOICE     = os.environ.get("VOICE", "nova")
 BUTTON_PIN = 23
 DEV_INDEX  = 1       # arecord -l で確認したカード番号
 
-# --- 録音設定（v4 と同じ） ---
+# --- 録音設定 ---
+# arecord で S16_LE (int16) を使用するため FORMAT 定数は不要
 CHUNK    = 4096
-FORMAT   = pyaudio.paInt16
 CHANNELS = 1
 RATE     = 16000
 
