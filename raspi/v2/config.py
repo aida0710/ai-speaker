@@ -2,12 +2,33 @@
 設定定数 — raspi/v2
 """
 
+import ctypes
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# .env を読み込む（このファイルと同じディレクトリ）
+load_dotenv(Path(__file__).parent / ".env")
+
+# ALSA エラーメッセージを抑制
+try:
+    _asound = ctypes.cdll.LoadLibrary("libasound.so.2")
+    _asound.snd_lib_error_set_handler(
+        ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int,
+                         ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p)(
+            lambda *_: None
+        )
+    )
+except OSError:
+    pass
+
 import pyaudio
 
 # --- API ---
-API_URL   = "http://192.168.1.x:3000/api/voice"  # サーバーのIPに変更
-API_TOKEN = "your-secret-token"                    # .env.local の API_TOKEN と一致させる
-VOICE     = "nova"                                 # alloy / echo / fable / onyx / nova / shimmer
+API_URL   = os.environ["API_URL"]
+API_TOKEN = os.environ["API_TOKEN"]
+VOICE     = os.environ.get("VOICE", "nova")
 
 # --- ハードウェア ---
 BUTTON_PIN = 23

@@ -4,6 +4,7 @@
 """
 
 import io
+import os
 import wave
 
 import pyaudio
@@ -19,6 +20,17 @@ from config import (
     END_TRIM_CHUNKS,
 )
 
+# PyAudio をメインスレッドで一度だけ初期化（スレッドセーフ対策）
+_devnull = os.open(os.devnull, os.O_WRONLY)
+_old_stderr = os.dup(2)
+os.dup2(_devnull, 2)
+try:
+    _audio = pyaudio.PyAudio()
+finally:
+    os.dup2(_old_stderr, 2)
+    os.close(_old_stderr)
+    os.close(_devnull)
+
 
 def record_audio(button, volume_gain: float) -> bytes | None:
     """
@@ -31,7 +43,7 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     volume_gain : float
         マイク入力に掛けるゲイン倍率。
     """
-    audio = pyaudio.PyAudio()
+    audio = _audio
 
     try:
         stream = audio.open(
@@ -44,7 +56,6 @@ def record_audio(button, volume_gain: float) -> bytes | None:
         )
     except Exception as e:
         print(f"エラー: マイクが開けません。{e}")
-        audio.terminate()
         return None
 
     print("録音中...（ボタンを離すと停止）")
@@ -74,7 +85,6 @@ def record_audio(button, volume_gain: float) -> bytes | None:
 
     stream.stop_stream()
     stream.close()
-    audio.terminate()
 
     if not frames:
         print("録音データがありません")
