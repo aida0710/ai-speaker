@@ -6,7 +6,7 @@ import {
   buildMessages,
   transcribeAudio,
   chatComplete,
-  textToSpeech,
+  textToSpeechStream,
   defaultVoice,
   type Message,
 } from "@/lib/voice-pipeline";
@@ -105,10 +105,12 @@ export async function POST(req: NextRequest) {
     typeof voiceRaw === "string" && voiceRaw ? voiceRaw : defaultVoice();
 
   try {
+    const t0 = performance.now();
     const systemPrompt = await getSystemPrompt();
 
     // ASR
     const transcription = await transcribeAudio(audioFile);
+    const t1 = performance.now();
 
     // Reject silence / unintelligible audio
     if (!transcription.trim()) {
@@ -121,11 +123,23 @@ export async function POST(req: NextRequest) {
     // LLM
     const messages = buildMessages(systemPrompt, history, transcription);
     const reply = await chatComplete(messages);
+    const t2 = performance.now();
 
-    // TTS
-    const audio = await textToSpeech(reply, voice);
+    // TTS (streaming)
+    const stream = await textToSpeechStream(reply, voice);
+    const t3 = performance.now();
 
-    return NextResponse.json({ transcription, reply, audio });
+    console.log(
+      `[PERF] ASR: ${(t1 - t0).toFixed(0)}ms | LLM: ${(t2 - t1).toFixed(0)}ms | TTS stream start: ${(t3 - t2).toFixed(0)}ms | Total: ${(t3 - t0).toFixed(0)}ms`
+    );
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "X-Transcription": encodeURIComponent(transcription),
+        "X-Reply": encodeURIComponent(reply),
+      },
+    });
   } catch (err) {
     console.error("Voice pipeline error:", err);
     return NextResponse.json(

@@ -14,7 +14,7 @@ from gpiozero import Button
 
 import config
 from recorder   import record_audio
-from api_client import call_text_api, stream_audio
+from api_client import call_voice_api, warm_connection
 from player     import init_amp, play_mp3_stream
 from display    import init_display, show_idle, show_recording, show_thinking, show_playing, show_network_error
 from encoder    import EncoderManager
@@ -40,6 +40,9 @@ def main():
     print("=== AI スピーカー v2 ===")
     print(f"サーバー: {config.API_URL}")
     print(f"ボイス  : {config.VOICE}")
+
+    warm_connection()
+
     print("準備完了。ボタンを押して話しかけてください。\n")
 
     device      = init_display()
@@ -114,8 +117,8 @@ def main():
         show_thinking(device, encoder.mode, _current_value())
         print(f"[PERF] WAV サイズ: {len(audio_bytes) / 1024:.1f} KB")
 
-        # Step 1: ASR + LLM
-        result = call_text_api(audio_bytes, history, config.VOICE)
+        # /voice 統合 API: ASR → LLM → TTS ストリーミングを 1 リクエストで
+        result = call_voice_api(audio_bytes, history, config.VOICE)
         t1 = time.time()
 
         if result is None:
@@ -123,30 +126,24 @@ def main():
             _refresh_idle()
             return
 
-        transcription = result.get("transcription", "")
-        reply         = result.get("reply", "")
+        transcription, reply, audio_resp = result
 
         print(f"  あなた : {transcription}")
         print(f"  AI     : {reply}")
 
-        # history をテキスト確定後すぐに更新
+        # history をヘッダ読み取り後すぐに更新
         history.append({"role": "user",      "content": transcription})
         history.append({"role": "assistant",  "content": reply})
 
-        # Step 2: TTS ストリーミング再生
-        audio_resp = stream_audio(reply, config.VOICE)
+        # MP3 ストリーミング再生
+        show_playing(device, encoder.mode, _current_value())
+        play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE, amp)
+
         t2 = time.time()
 
-        if audio_resp is not None:
-            show_playing(device, encoder.mode, _current_value())
-            play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE, amp)
-
-        t3 = time.time()
-
-        print(f"[PERF] /text API : {t1 - t0:.2f}s")
-        print(f"[PERF] /audio API: {t2 - t1:.2f}s")
-        print(f"[PERF] 再生      : {t3 - t2:.2f}s")
-        print(f"[PERF] 合計(送信→再生終了): {t3 - t0:.2f}s")
+        print(f"[PERF] /voice API (headers): {t1 - t0:.2f}s")
+        print(f"[PERF] 再生                : {t2 - t1:.2f}s")
+        print(f"[PERF] 合計(送信→再生終了) : {t2 - t0:.2f}s")
 
         _busy = False
         _refresh_idle()

@@ -1,10 +1,12 @@
 """
 API 通信モジュール — raspi/v2
-テキスト変換（ASR + LLM）と音声ストリーミング（TTS）を別々のリクエストで処理する。
-requests.Session で TCP 接続を再利用し、/audio の接続オーバーヘッドを削減する。
+/voice 統合エンドポイントで ASR → LLM → TTS を 1 リクエストで処理する。
+レスポンスヘッダに transcription / reply を返し、ボディは MP3 ストリーム。
+requests.Session で TCP/TLS 接続を再利用する。
 """
 
 import json
+import urllib.parse
 
 import requests
 
@@ -14,29 +16,37 @@ _session = requests.Session()
 _session.headers["Authorization"] = f"Bearer {API_TOKEN}"
 
 
-def call_text_api(audio_bytes: bytes, history: list, voice: str) -> dict | None:
-    """
-    音声と履歴を /text エンドポイントに送り、{transcription, reply} を返す。
+def warm_connection():
+    """起動時に HEAD リクエストで TLS 接続を確立し、初回レイテンシを削減する。"""
+    try:
+        _session.head(API_URL, timeout=10)
+        print("接続プリウォーム完了")
+    except Exception as e:
+        print(f"プリウォーム失敗（初回リクエストで接続します）: {e}")
 
-    Parameters
-    ----------
-    audio_bytes : bytes
-        送信する WAV 音声データ。
-    history : list
-        会話履歴 [{role, content}, ...]。
-    voice : str
-        TTS ボイス名（alloy / echo / fable / onyx / nova / shimmer）。
+
+def call_voice_api(
+    audio_bytes: bytes, history: list, voice: str
+) -> tuple[str, str, requests.Response] | None:
+    """
+    /voice エンドポイントに音声を送り、ASR→LLM→TTS を 1 往復で処理する。
+
+    Returns
+    -------
+    (transcription, reply, response) or None on error.
+    response はストリーミング MP3 ボディ。
     """
     print("考え中...")
     try:
         resp = _session.post(
-            f"{API_URL}/text",
+            API_URL,
             files={"audio": ("input.wav", audio_bytes, "audio/wav")},
             data={
                 "history": json.dumps(history),
                 "voice": voice,
             },
             timeout=60,
+            stream=True,
         )
     except requests.exceptions.ConnectionError:
         print("エラー: サーバーに接続できません。API_URL を確認してください。")
@@ -55,37 +65,7 @@ def call_text_api(audio_bytes: bytes, history: list, voice: str) -> dict | None:
         print(f"エラー: サーバーエラー {resp.status_code}: {resp.text}")
         return None
 
-    return resp.json()
+    transcription = urllib.parse.unquote(resp.headers.get("X-Transcription", ""))
+    reply = urllib.parse.unquote(resp.headers.get("X-Reply", ""))
 
-
-def stream_audio(reply: str, voice: str) -> requests.Response | None:
-    """
-    /audio エンドポイントに reply を送り、ストリーミングレスポンスを返す。
-
-    Parameters
-    ----------
-    reply : str
-        TTS に変換するテキスト。
-    voice : str
-        TTS ボイス名（alloy / echo / fable / onyx / nova / shimmer）。
-    """
-    try:
-        resp = _session.post(
-            f"{API_URL}/audio",
-            headers={"Content-Type": "application/json"},
-            json={"reply": reply, "voice": voice},
-            timeout=60,
-            stream=True,
-        )
-    except requests.exceptions.ConnectionError:
-        print("エラー: サーバーに接続できません。API_URL を確認してください。")
-        return None
-    except requests.exceptions.Timeout:
-        print("エラー: 音声ストリームのタイムアウト。")
-        return None
-
-    if not resp.ok:
-        print(f"エラー: 音声取得エラー {resp.status_code}: {resp.text}")
-        return None
-
-    return resp
+    return transcription, reply, resp
