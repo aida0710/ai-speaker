@@ -146,18 +146,33 @@ python3 /home/aida/ai-speaker/raspi/v2/main.py
 
 ### systemd による自動起動
 
+#### 初回インストール・サービスファイル更新時
+
+```bash
+cd ~/ai-speaker/raspi/v2
+./install-service.sh
+```
+
+または手動で:
+
 ```bash
 sudo cp ~/ai-speaker/raspi/v2/ai-speaker.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable ai-speaker
-sudo systemctl start ai-speaker
+sudo systemctl restart ai-speaker
 ```
 
-### デプロイ（git pull + 再起動）
+> **Note**: サービスファイルは `/etc/systemd/system/ai-speaker.service` に配置されます。
+> `ai-speaker.service` を編集した後は、必ず `install-service.sh` を実行するか、
+> 手動で上記コマンドを実行してください。
+
+#### デプロイ（git pull + 再起動）
 
 ```bash
 ~/ai-speaker/raspi/v2/deploy.sh
 ```
+
+> コードの変更のみの場合は `deploy.sh` で OK。サービスファイル自体を変更した場合は `install-service.sh` を実行してください。
 
 ### ログ確認
 
