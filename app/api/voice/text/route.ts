@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
   try {
     const systemPrompt = await getSystemPrompt();
 
+    const t0 = performance.now();
     const transcription = await transcribeAudio(audioFile);
+    const t1 = performance.now();
 
     if (!transcription.trim()) {
       return NextResponse.json(
@@ -107,6 +109,13 @@ export async function POST(req: NextRequest) {
 
     const messages = buildMessages(systemPrompt, history, transcription);
     const reply = await chatComplete(messages);
+    const t2 = performance.now();
+
+    console.log(
+      `[PERF /text] ASR: ${((t1 - t0) / 1000).toFixed(2)}s | ` +
+        `LLM: ${((t2 - t1) / 1000).toFixed(2)}s | ` +
+        `Total: ${((t2 - t0) / 1000).toFixed(2)}s`
+    );
 
     return NextResponse.json({ transcription, reply });
   } catch (err) {

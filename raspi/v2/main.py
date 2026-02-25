@@ -104,10 +104,12 @@ def main():
             _refresh_idle()
             return
 
+        t0 = time.time()  # 録音終了、送信開始
         show_thinking(device, encoder.mode, _current_value())
 
         # Step 1: ASR + LLM
         result = call_text_api(wav_bytes, history, config.VOICE)
+        t1 = time.time()
 
         if result is None:
             _refresh_idle()
@@ -125,10 +127,18 @@ def main():
 
         # Step 2: TTS ストリーミング再生
         audio_resp = stream_audio(reply, config.VOICE)
+        t2 = time.time()
 
         if audio_resp is not None:
             show_playing(device, encoder.mode, _current_value())
             play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE)
+
+        t3 = time.time()
+
+        print(f"[PERF] /text API : {t1 - t0:.2f}s")
+        print(f"[PERF] /audio API: {t2 - t1:.2f}s")
+        print(f"[PERF] 再生      : {t3 - t2:.2f}s")
+        print(f"[PERF] 合計(送信→再生終了): {t3 - t0:.2f}s")
 
         _refresh_idle()
 

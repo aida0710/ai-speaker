@@ -55,7 +55,14 @@ export async function POST(req: NextRequest) {
     typeof voiceRaw === "string" && voiceRaw ? voiceRaw : defaultVoice();
 
   try {
+    const t0 = performance.now();
     const stream = await textToSpeechStream(reply, voice);
+    const t1 = performance.now();
+
+    console.log(
+      `[PERF /audio] TTS stream start: ${((t1 - t0) / 1000).toFixed(2)}s`
+    );
+
     return new Response(stream, {
       headers: { "Content-Type": "audio/mpeg" },
     });
