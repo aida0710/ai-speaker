@@ -55,7 +55,7 @@ def play_mp3_stream(
     t_start = time.time()
 
     # プリバッファ: 再生前に十分なデータを蓄えて途切れを防止
-    _PRE_BUFFER_BYTES = 32768  # 32KB ≈ MP3 64kbps で約4秒分
+    _PRE_BUFFER_BYTES = 16384  # 16KB ≈ MP3 64kbps で約2秒分
     pre_buf = bytearray()
     chunks_iter = response.iter_content(chunk_size=8192)
     stream_ended = False
