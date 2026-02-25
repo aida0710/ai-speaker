@@ -15,7 +15,7 @@ from gpiozero import Button
 import config
 from recorder   import record_audio
 from api_client import call_text_api, stream_audio
-from player     import play_mp3_stream
+from player     import init_amp, play_mp3_stream
 from display    import init_display, show_idle, show_recording, show_thinking, show_playing, show_network_error
 from encoder    import EncoderManager
 
@@ -43,6 +43,7 @@ def main():
     print("準備完了。ボタンを押して話しかけてください。\n")
 
     device      = init_display()
+    amp         = init_amp(config.AMP_SD_PIN)
     encoder     = EncoderManager()
     rec_button  = Button(config.BUTTON_REC,  pull_up=True)
     mode_button = Button(config.BUTTON_MODE, pull_up=True)
@@ -131,7 +132,7 @@ def main():
 
         if audio_resp is not None:
             show_playing(device, encoder.mode, _current_value())
-            play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE)
+            play_mp3_stream(audio_resp, config.PLAYBACK_DEVICE, amp)
 
         t3 = time.time()
 

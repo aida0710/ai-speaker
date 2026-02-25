@@ -55,6 +55,10 @@ OLED (SSD1306 I2C)
 モード切替ボタン（タクタイルスイッチ）
   片方     → Pi 18番ピン (GPIO24)
   もう片方  → Pi 6番ピン  (GND)
+
+I2S アンプ (MAX98357A)
+  SD ピン  → Pi 22番ピン (GPIO25)
+  ※ 再生時のみアンプを ON にしてポップノイズを抑制
 ```
 
 ## Raspberry Pi Zero W 全ピン対応表
@@ -70,7 +74,7 @@ OLED (SSD1306 I2C)
      GPIO22   [15] [16]  GPIO23      ← [16] 録音ボタン
         3.3V  [17] [18]  GPIO24      ← [18] モード切替ボタン
 GPIO10(MOSI)  [19] [20]  GND
- GPIO9(MISO)  [21] [22]  GPIO25
+ GPIO9(MISO)  [21] [22]  GPIO25      ← [22] アンプ SD ピン
 GPIO11(SCLK)  [23] [24]  GPIO8(CE0)
          GND  [25] [26]  GPIO7(CE1)
   ID_SD(EEPROM)[27][28]  ID_SC(EEPROM)
@@ -92,6 +96,7 @@ GPIO11(SCLK)  [23] [24]  GPIO8(CE0)
 | 13 | GPIO27 | Encoder DT (B相) | エンコーダ B ピン |
 | 16 | GPIO23 | 録音ボタン | タクタイルスイッチ片方 |
 | 18 | GPIO24 | モード切替ボタン | タクタイルスイッチ片方 |
+| 22 | GPIO25 | アンプ SD (Shut Down) | MAX98357A SD ピン |
 | その他 | — | 未使用 | — |
 
 ---

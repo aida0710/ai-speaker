@@ -36,6 +36,9 @@ ENCODER_CLK = 17   # GPIO17 (物理ピン 11)
 ENCODER_DT  = 27   # GPIO27 (物理ピン 13)
 ENCODER_SW  = 22   # 未使用（RE160F-40E3-20A-24P はプッシュスイッチなし）
 
+# --- アンプ (MAX98357A) ---
+AMP_SD_PIN = 25    # SD (Shut Down) ピン — GPIO25 (物理ピン 22)
+
 # --- OLED ---
 OLED_WIDTH  = 128
 OLED_HEIGHT = 64
