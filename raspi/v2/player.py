@@ -54,8 +54,10 @@ def play_mp3_stream(
     print("再生中...")
     t_start = time.time()
 
-    # プリバッファ: 再生前に十分なデータを蓄えて途切れを防止
-    _PRE_BUFFER_BYTES = 16384  # 16KB ≈ MP3 64kbps で約2秒分
+    # プリバッファ: 再生前にデータを蓄えて途切れを防止
+    # 目標 16KB だが、TTS 生成が遅い長文では最大 2 秒で打ち切る
+    _PRE_BUFFER_BYTES = 16384  # 16KB 目標
+    _PRE_BUFFER_TIMEOUT = 2.0  # 秒（長文で待ちすぎを防止）
     pre_buf = bytearray()
     chunks_iter = response.iter_content(chunk_size=8192)
     stream_ended = False
@@ -64,6 +66,8 @@ def play_mp3_stream(
         if chunk:
             pre_buf.extend(chunk)
             if len(pre_buf) >= _PRE_BUFFER_BYTES:
+                break
+            if time.time() - t_start > _PRE_BUFFER_TIMEOUT:
                 break
     else:
         stream_ended = True
