@@ -56,17 +56,19 @@ def main():
 
     # ネットワーク状態（バックグラウンドスレッドが更新）
     _net_ok = True
+    _busy = False  # 録音〜再生中は True（ネットワークチェックを抑制）
 
     def _network_watcher():
         """15 秒ごとに疎通確認し、状態変化時にキューで通知する。"""
         nonlocal _net_ok
         while True:
-            ok = _check_network()
-            if ok != _net_ok:
-                _net_ok = ok
-                msg = "ネットワーク接続が回復しました" if ok else "ネットワーク接続が切断されました"
-                print(msg)
-                _work.put("net_changed")
+            if not _busy:
+                ok = _check_network()
+                if ok != _net_ok:
+                    _net_ok = ok
+                    msg = "ネットワーク接続が回復しました" if ok else "ネットワーク接続が切断されました"
+                    print(msg)
+                    _work.put("net_changed")
             time.sleep(_NETWORK_CHECK_INTERVAL)
 
     threading.Thread(target=_network_watcher, daemon=True).start()
@@ -98,10 +100,13 @@ def main():
 
     def _do_record():
         """録音 → API → 再生（メインスレッドで実行）"""
+        nonlocal _busy
+        _busy = True
         show_recording(device, encoder.mode, _current_value())
         audio_bytes = record_audio(rec_button, encoder.volume_gain)
 
         if audio_bytes is None:
+            _busy = False
             _refresh_idle()
             return
 
@@ -114,6 +119,7 @@ def main():
         t1 = time.time()
 
         if result is None:
+            _busy = False
             _refresh_idle()
             return
 
@@ -142,6 +148,7 @@ def main():
         print(f"[PERF] 再生      : {t3 - t2:.2f}s")
         print(f"[PERF] 合計(送信→再生終了): {t3 - t0:.2f}s")
 
+        _busy = False
         _refresh_idle()
 
     # gpiozero イベントバインド
