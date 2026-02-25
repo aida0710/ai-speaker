@@ -7,9 +7,11 @@ Wants=network-online.target
 Type=simple
 User=aida
 WorkingDirectory=/home/aida/ai-speaker/raspi/v2
-ExecStart=/usr/bin/python3 main.py
+ExecStart=/usr/bin/python3 -u main.py
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

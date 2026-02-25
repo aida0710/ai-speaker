@@ -16,8 +16,9 @@ API_TOKEN = os.environ["API_TOKEN"]
 VOICE     = os.environ.get("VOICE", "nova")
 
 # --- ハードウェア ---
-BUTTON_PIN = 23
-DEV_INDEX  = 1       # arecord -l で確認したカード番号
+BUTTON_REC  = 23     # 録音ボタン（押している間録音）
+BUTTON_MODE = 24     # モード切替ボタン
+DEV_INDEX   = 1      # arecord -l で確認したカード番号
 
 # --- 録音設定 ---
 # arecord で S16_LE (int16) を使用するため FORMAT 定数は不要

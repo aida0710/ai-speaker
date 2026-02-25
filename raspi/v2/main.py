@@ -1,8 +1,8 @@
 """
 AI スピーカー v2 — メインループ
-- ボタン長押し（0.5s）: 録音 → API → 再生
-- ボタン短タップ      : モード切り替え（MIC_GAIN ↔ SPEAKER_VOL）
-- エンコーダ回転      : 現在モードの値を調整 → OLED 更新
+- 録音ボタン（GPIO23）: 押している間録音 → 離したら API → 再生
+- モードボタン（GPIO24）: タップでモード切り替え（MIC_GAIN ↔ SPEAKER_VOL）
+- エンコーダ回転       : 現在モードの値を調整 → OLED 更新
 """
 
 import queue
@@ -42,10 +42,11 @@ def main():
     print(f"ボイス  : {config.VOICE}")
     print("準備完了。ボタンを押して話しかけてください。\n")
 
-    device  = init_display()
-    encoder = EncoderManager()
-    button  = Button(config.BUTTON_PIN, pull_up=True, hold_time=0.5)
-    history = []
+    device      = init_display()
+    encoder     = EncoderManager()
+    rec_button  = Button(config.BUTTON_REC,  pull_up=True)
+    mode_button = Button(config.BUTTON_MODE, pull_up=True)
+    history     = []
 
     # PortAudio/ALSA はメインスレッド以外から open() するとセグフォルトするため、
     # コールバック（gpiozero バックグラウンドスレッド）からはキューに積むだけにして
@@ -69,9 +70,6 @@ def main():
 
     threading.Thread(target=_network_watcher, daemon=True).start()
 
-    # 長押しと短タップを区別するフラグ
-    _was_held = False
-
     def _current_value():
         if encoder.mode == "MIC_GAIN":
             return encoder.volume_gain
@@ -84,19 +82,14 @@ def main():
         else:
             show_network_error(device, encoder.mode, _current_value())
 
-    def on_held():
-        """長押し検知: メインスレッドへ録音タスクを委譲"""
-        nonlocal _was_held
-        _was_held = True
+    def on_rec_pressed():
+        """録音ボタン押下: メインスレッドへ録音タスクを委譲"""
         _work.put("record")
 
-    def on_released():
-        """ボタン離し: 長押しでなければモード切り替え"""
-        nonlocal _was_held
-        if not _was_held:
-            encoder.cycle_mode()
-            _work.put("refresh")
-        _was_held = False
+    def on_mode_pressed():
+        """モードボタン押下: モード切り替え"""
+        encoder.cycle_mode()
+        _work.put("refresh")
 
     def on_rotated():
         """エンコーダ回転: メインスレッドへ表示更新を委譲"""
@@ -105,7 +98,7 @@ def main():
     def _do_record():
         """録音 → API → 再生（メインスレッドで実行）"""
         show_recording(device, encoder.mode, _current_value())
-        wav_bytes = record_audio(button, encoder.volume_gain)
+        wav_bytes = record_audio(rec_button, encoder.volume_gain)
 
         if wav_bytes is None:
             _refresh_idle()
@@ -140,8 +133,8 @@ def main():
         _refresh_idle()
 
     # gpiozero イベントバインド
-    button.when_held     = on_held
-    button.when_released = on_released
+    rec_button.when_pressed  = on_rec_pressed
+    mode_button.when_pressed = on_mode_pressed
 
     # エンコーダ回転イベント（EncoderManager 内の _on_rotate 後に表示更新）
     _orig_on_rotate = encoder._on_rotate
