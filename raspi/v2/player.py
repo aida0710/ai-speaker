@@ -54,7 +54,7 @@ def play_mp3_stream(
     print("再生中...")
     t_start = time.time()
     proc = subprocess.Popen(
-        ["mpg123", "-o", "alsa", "-a", playback_device, "-q", "-"],
+        ["mpg123", "-o", "alsa", "-a", playback_device, "-b", "128", "-q", "-"],
         stdin=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
