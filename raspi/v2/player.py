@@ -53,21 +53,45 @@ def play_mp3_stream(
 
     print("再生中...")
     t_start = time.time()
+
+    # プリバッファ: 再生前に十分なデータを蓄えて途切れを防止
+    _PRE_BUFFER_BYTES = 32768  # 32KB ≈ MP3 64kbps で約4秒分
+    pre_buf = bytearray()
+    chunks_iter = response.iter_content(chunk_size=8192)
+    stream_ended = False
+
+    for chunk in chunks_iter:
+        if chunk:
+            pre_buf.extend(chunk)
+            if len(pre_buf) >= _PRE_BUFFER_BYTES:
+                break
+    else:
+        stream_ended = True
+
+    if not pre_buf:
+        print("再生データなし")
+        if amp is not None:
+            amp.off()
+        return
+
+    t_buffered = time.time()
+    print(f"[PERF] プリバッファ : {len(pre_buf) / 1024:.1f}KB in {t_buffered - t_start:.2f}s")
+
     proc = subprocess.Popen(
         ["mpg123", "-o", "alsa", "-a", playback_device, "-b", "128", "-q", "-"],
         stdin=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
-    t_proc = time.time()
-    first_chunk = True
-    for chunk in response.iter_content(chunk_size=4096):
-        if chunk:
-            if first_chunk:
-                t_first = time.time()
-                print(f"[PERF] mpg123 起動  : {t_proc - t_start:.2f}s")
-                print(f"[PERF] 最初のチャンク: {t_first - t_start:.2f}s")
-                first_chunk = False
-            proc.stdin.write(chunk)
+
+    # プリバッファ分を一括書き込み
+    proc.stdin.write(pre_buf)
+
+    # 残りをストリーミング
+    if not stream_ended:
+        for chunk in chunks_iter:
+            if chunk:
+                proc.stdin.write(chunk)
+
     proc.stdin.close()
     proc.wait()
     print("再生終了")
