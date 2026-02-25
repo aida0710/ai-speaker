@@ -1,14 +1,15 @@
 """
 音声録音モジュール — raspi/v2
-ボタンが押されている間録音し、OPUS (OGG) バイト列を返す。
+ボタンが押されている間録音し、WAV バイト列を返す。
 
 PyAudio/PortAudio は ARMv6 (Raspberry Pi Zero W) で Pa_OpenStream 内で
 セグフォルトするため、arecord (ALSA ユーティリティ) をサブプロセスで
 使用することで問題を回避する。
-録音後 ffmpeg で raw PCM → OPUS に圧縮し、アップロードサイズを削減する。
 """
 
+import io
 import subprocess
+import wave
 
 import numpy as np
 
@@ -25,7 +26,7 @@ _CHUNK_BYTES = CHUNK * _BYTES_PER_SAMPLE * CHANNELS
 
 def record_audio(button, volume_gain: float) -> bytes | None:
     """
-    ボタンが押されている間録音し、OPUS (OGG) バイト列を返す。
+    ボタンが押されている間録音し、WAV バイト列を返す。
 
     Parameters
     ----------
@@ -74,19 +75,11 @@ def record_audio(button, volume_gain: float) -> bytes | None:
         print("録音データがありません")
         return None
 
-    raw_pcm = b"".join(frames)
-    proc_enc = subprocess.run(
-        [
-            "ffmpeg", "-f", "s16le", "-ar", str(RATE), "-ac", str(CHANNELS),
-            "-i", "pipe:0", "-c:a", "libopus", "-b:a", "24k",
-            "-compression_level", "0", "-application", "voip",
-            "-f", "ogg", "pipe:1",
-        ],
-        input=raw_pcm,
-        capture_output=True,
-        timeout=10,
-    )
-    if proc_enc.returncode != 0:
-        print(f"ffmpeg エラー: {proc_enc.stderr.decode()}")
-        return None
-    return proc_enc.stdout
+    buf = io.BytesIO()
+    wf = wave.open(buf, "wb")
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(_BYTES_PER_SAMPLE)
+    wf.setframerate(RATE)
+    wf.writeframes(b"".join(frames))
+    wf.close()
+    return buf.getvalue()

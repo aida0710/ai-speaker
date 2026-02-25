@@ -24,7 +24,7 @@ DEV_INDEX   = 1      # arecord -l で確認したカード番号
 # arecord で S16_LE (int16) を使用するため FORMAT 定数は不要
 CHUNK    = 4096
 CHANNELS = 1
-RATE     = 16000
+RATE     = 8000
 
 # --- マイクゲイン ---
 VOLUME_GAIN_DEFAULT = 16.0

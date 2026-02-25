@@ -21,7 +21,7 @@ def call_text_api(audio_bytes: bytes, history: list, voice: str) -> dict | None:
     Parameters
     ----------
     audio_bytes : bytes
-        送信する OPUS (OGG) 音声データ。
+        送信する WAV 音声データ。
     history : list
         会話履歴 [{role, content}, ...]。
     voice : str
@@ -31,7 +31,7 @@ def call_text_api(audio_bytes: bytes, history: list, voice: str) -> dict | None:
     try:
         resp = _session.post(
             f"{API_URL}/text",
-            files={"audio": ("input.ogg", audio_bytes, "audio/ogg")},
+            files={"audio": ("input.wav", audio_bytes, "audio/wav")},
             data={
                 "history": json.dumps(history),
                 "voice": voice,
