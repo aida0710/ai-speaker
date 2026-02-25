@@ -1,6 +1,7 @@
 """
 API 通信モジュール — raspi/v2
 テキスト変換（ASR + LLM）と音声ストリーミング（TTS）を別々のリクエストで処理する。
+requests.Session で TCP 接続を再利用し、/audio の接続オーバーヘッドを削減する。
 """
 
 import json
@@ -9,15 +10,18 @@ import requests
 
 from config import API_URL, API_TOKEN
 
+_session = requests.Session()
+_session.headers["Authorization"] = f"Bearer {API_TOKEN}"
 
-def call_text_api(wav_bytes: bytes, history: list, voice: str) -> dict | None:
+
+def call_text_api(audio_bytes: bytes, history: list, voice: str) -> dict | None:
     """
     音声と履歴を /text エンドポイントに送り、{transcription, reply} を返す。
 
     Parameters
     ----------
-    wav_bytes : bytes
-        送信する WAV 音声データ。
+    audio_bytes : bytes
+        送信する OPUS (OGG) 音声データ。
     history : list
         会話履歴 [{role, content}, ...]。
     voice : str
@@ -25,10 +29,9 @@ def call_text_api(wav_bytes: bytes, history: list, voice: str) -> dict | None:
     """
     print("考え中...")
     try:
-        resp = requests.post(
+        resp = _session.post(
             f"{API_URL}/text",
-            headers={"Authorization": f"Bearer {API_TOKEN}"},
-            files={"audio": ("input.wav", wav_bytes, "audio/wav")},
+            files={"audio": ("input.ogg", audio_bytes, "audio/ogg")},
             data={
                 "history": json.dumps(history),
                 "voice": voice,
@@ -67,12 +70,9 @@ def stream_audio(reply: str, voice: str) -> requests.Response | None:
         TTS ボイス名（alloy / echo / fable / onyx / nova / shimmer）。
     """
     try:
-        resp = requests.post(
+        resp = _session.post(
             f"{API_URL}/audio",
-            headers={
-                "Authorization": f"Bearer {API_TOKEN}",
-                "Content-Type": "application/json",
-            },
+            headers={"Content-Type": "application/json"},
             json={"reply": reply, "voice": voice},
             timeout=60,
             stream=True,

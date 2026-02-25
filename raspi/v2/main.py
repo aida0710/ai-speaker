@@ -99,17 +99,18 @@ def main():
     def _do_record():
         """録音 → API → 再生（メインスレッドで実行）"""
         show_recording(device, encoder.mode, _current_value())
-        wav_bytes = record_audio(rec_button, encoder.volume_gain)
+        audio_bytes = record_audio(rec_button, encoder.volume_gain)
 
-        if wav_bytes is None:
+        if audio_bytes is None:
             _refresh_idle()
             return
 
         t0 = time.time()  # 録音終了、送信開始
         show_thinking(device, encoder.mode, _current_value())
+        print(f"[PERF] OPUS サイズ: {len(audio_bytes) / 1024:.1f} KB")
 
         # Step 1: ASR + LLM
-        result = call_text_api(wav_bytes, history, config.VOICE)
+        result = call_text_api(audio_bytes, history, config.VOICE)
         t1 = time.time()
 
         if result is None:
