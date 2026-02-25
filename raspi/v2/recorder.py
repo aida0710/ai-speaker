@@ -78,7 +78,9 @@ def record_audio(button, volume_gain: float) -> bytes | None:
     proc_enc = subprocess.run(
         [
             "ffmpeg", "-f", "s16le", "-ar", str(RATE), "-ac", str(CHANNELS),
-            "-i", "pipe:0", "-c:a", "libopus", "-b:a", "24k", "-f", "ogg", "pipe:1",
+            "-i", "pipe:0", "-c:a", "libopus", "-b:a", "24k",
+            "-compression_level", "0", "-application", "voip",
+            "-f", "ogg", "pipe:1",
         ],
         input=raw_pcm,
         capture_output=True,
